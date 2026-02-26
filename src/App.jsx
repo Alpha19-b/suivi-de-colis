@@ -15,7 +15,7 @@ import {
 const SUPABASE_URL = "https://rvkidhldutbufaugdxiy.supabase.co"; 
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ2a2lkaGxkdXRidWZhdWdkeGl5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY1OTQzMDMsImV4cCI6MjA4MjE3MDMwM30.TFy03OOytt9DvH-PRU9lulUjFLWZibcY_XN0r3eofvg";
 
-const APP_URL = "https://alpha19-b.github.io/suivi-de-colis/";
+const APP_URL = "https://guineatrack.com/";
 
 const hasConfig = SUPABASE_URL && SUPABASE_ANON_KEY;
 
