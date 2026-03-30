@@ -224,16 +224,20 @@ export const AdminScreen = ({
       return bulkStatusIndex !== -1 && bulkStatusIndex < itemStatusIndex;
     });
 
-    if (isRetrograding) {
-      bulkWarnings.push("Faire reculer le statut d'un ou plusieurs colis (retour à une étape précédente).");
-    }
-
     if (!isAdmin) {
+      // 🟢 BLOCAGE STRICT AGENT : Interdiction de reculer le statut
+      if (isRetrograding) {
+        return setAlertMessage("🚨 SÉCURITÉ : Seul un gérant peut faire reculer le statut d'un colis vers une étape précédente.");
+      }
+
       const hasLocked = selectedShipments.some(item => item.status === 'recupere');
       if (hasLocked) return setAlertMessage("❌ ALERTE SÉCURITÉ : Votre sélection contient un colis déjà 'Récupéré'. Seul un gérant peut modifier ce dossier.");
+      
       const hasUnpaid = selectedShipments.some(item => item.payment_status !== 'paid');
       if (bulkStatus === 'recupere' && hasUnpaid) return setAlertMessage("❌ ALERTE SÉCURITÉ : Impossible de marquer en 'Récupéré'. Certains colis sélectionnés n'ont pas encore été encaissés !");
     } else {
+      // 🟢 POUR LES GÉRANTS : On affiche la fenêtre d'avertissement avec le bouton "Forcer"
+      if (isRetrograding) bulkWarnings.push("Faire reculer le statut d'un ou plusieurs colis (retour à une étape précédente).");
       if (selectedShipments.some(item => item.status === 'recupere')) bulkWarnings.push("Modifier le statut de colis déjà récupérés.");
       if (bulkStatus === 'recupere' && selectedShipments.some(item => item.payment_status !== 'paid')) bulkWarnings.push("Marquer comme 'Récupéré' des colis non encaissés.");
     }
