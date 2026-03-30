@@ -562,22 +562,38 @@ export const AdminScreen = ({
       setLoading(true);
       if (!userOrg?.id) throw new Error("Organisation introuvable.");
       const id = `GN-${Math.floor(10000 + Math.random() * 90000)}`;
+      
+      // 🟢 SÉCURITÉ : On nettoie le transport pour garantir un vrai NULL s'il est vide
+      const safeTransportType = !newShipment.transport_type || newShipment.transport_type.trim() === "" ? null : newShipment.transport_type.trim();
+
       let initial_amount_due = null;
-      if (newShipment.weight_kg && newShipment.transport_type && userOrg?.public_rates?.[newShipment.transport_type]) {
-          const rate = userOrg.public_rates[newShipment.transport_type];
+      if (newShipment.weight_kg && safeTransportType && userOrg?.public_rates?.[safeTransportType]) {
+          const rate = userOrg.public_rates[safeTransportType];
           const unitPrice = typeof rate === 'object' ? Number(rate.price || 0) : Number(rate || 0);
           initial_amount_due = Number(newShipment.weight_kg) * unitPrice;
       }
+      
       const payload = { 
-        internal_id: id, organization_id: userOrg.id, client_name: newShipment.client_name, 
-        email: newShipment.email || null, phone: newShipment.phone, description: newShipment.description, 
-        china_tracking: newShipment.china_tracking, intl_tracking: newShipment.intl_tracking, 
-        weight_kg: newShipment.weight_kg ? Number(newShipment.weight_kg) : null, photo_path: newShipment.photo_path || null, 
-        transport_type: newShipment.transport_type || null, estimated_delivery: newShipment.estimated_delivery || null, 
-        status: "en_preparation", payment_status: "unpaid", amount_due_gnf: initial_amount_due 
+        internal_id: id, 
+        organization_id: userOrg.id, 
+        client_name: newShipment.client_name.trim(), 
+        email: newShipment.email ? newShipment.email.trim() : null, 
+        phone: newShipment.phone, 
+        description: newShipment.description, 
+        china_tracking: newShipment.china_tracking, 
+        intl_tracking: newShipment.intl_tracking, 
+        weight_kg: newShipment.weight_kg ? Number(newShipment.weight_kg) : null, 
+        photo_path: newShipment.photo_path || null, 
+        transport_type: safeTransportType, // 👉 C'est ici que la magie opère !
+        estimated_delivery: newShipment.estimated_delivery || null, 
+        status: "en_preparation", 
+        payment_status: "unpaid", 
+        amount_due_gnf: initial_amount_due 
       };
+      
       const { data: insertedShipment, error: insertError } = await supabase.from("shipments").insert([payload]).select().single();
       if (insertError) throw insertError;
+      
       await supabase.from("shipment_events").insert([{ shipment_id: insertedShipment.id, status: "en_preparation", note: "Dossier ouvert.", source: "manual" }]);
       
       setNewShipment({ client_name: "", email: "", phone: "", description: "", china_tracking: "", intl_tracking: "", weight_kg: "", photo_path: "", transport_type: "", estimated_delivery: "" });
