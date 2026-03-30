@@ -250,17 +250,24 @@ export const AdminScreen = ({
     setAdminBulkWarning({ show: false, warnings: [] }); 
     const selectedShipments = filteredAdminList.filter(item => selectedIds.includes(item.id));
 
+    // 🟢 LA MAGIE DU SNAPSHOT EST ICI :
+    // On utilise la limite de l'organisation (Snapshot) s'il existe, sinon on prend le catalogue
+    const baseEmailLimit = (userOrg?.base_email_limit !== undefined && userOrg?.base_email_limit !== null) ? userOrg.base_email_limit : planEmailQuota;
+    const baseSmsLimit = (userOrg?.base_sms_limit !== undefined && userOrg?.base_sms_limit !== null) ? userOrg.base_sms_limit : planSmsQuota;
+
     const emailsUsed = userOrg?.emails_sent_this_month || 0;
-    const emailsAllowed = planEmailQuota + (userOrg?.extra_email_quota || 0);
+    const emailsAllowed = baseEmailLimit + (userOrg?.extra_email_quota || 0);
     const emailsRemaining = emailsAllowed - emailsUsed;
 
     const smsUsed = userOrg?.sms_sent_this_month || 0;
-    const smsAllowed = planSmsQuota + (wallet?.tracking_credits || 0);
+    const smsAllowed = baseSmsLimit + (wallet?.tracking_credits || 0);
     const smsRemaining = Math.max(0, smsAllowed - smsUsed);
-    const hasSmsCredits = smsRemaining > 0 || planSmsQuota >= 100000;
+    
+    // On autorise un plafond illimité si le snapshot indique 100000+
+    const hasSmsCredits = smsRemaining > 0 || baseSmsLimit >= 100000;
 
     if (bulkSendSms && !hasSmsCredits) return setAlertMessage(`❌ Crédits SMS insuffisants.`);
-    if (bulkSendEmail && emailsAllowed < 100000 && emailsRemaining < selectedIds.length) return setAlertMessage(`❌ Quota d'e-mails insuffisant.`);
+    if (bulkSendEmail && baseEmailLimit < 100000 && emailsRemaining < selectedIds.length) return setAlertMessage(`❌ Quota d'e-mails insuffisant.`);
 
     setIsBulkUpdating(true);
     try {

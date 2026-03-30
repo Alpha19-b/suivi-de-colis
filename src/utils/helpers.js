@@ -52,14 +52,65 @@ export const getReturnUrl = () => {
 
 export const extractErrorMessage = (err) => {
   if (!err) return "Erreur inconnue.";
-  if (typeof err === "string") return err;
-  if (err.message && typeof err.message === "string") return err.message;
-  if (err.error_description && typeof err.error_description === "string")
-    return err.error_description;
-  if (err.error && typeof err.error === "string") return err.error;
-  try {
-    return JSON.stringify(err);
-  } catch {
-    return "Erreur technique.";
+
+  // 1. Extraction du message d'erreur brut
+  let msg = "Erreur technique.";
+  if (typeof err === "string") {
+    msg = err;
+  } else if (err.message && typeof err.message === "string") {
+    msg = err.message;
+  } else if (
+    err.error_description &&
+    typeof err.error_description === "string"
+  ) {
+    msg = err.error_description;
+  } else if (err.error && typeof err.error === "string") {
+    msg = err.error;
+  } else {
+    try {
+      msg = JSON.stringify(err);
+    } catch {
+      return "Erreur technique.";
+    }
   }
+
+  // 2. DICTIONNAIRE DE TRADUCTION EN FRANÇAIS
+
+  if (msg.includes("invalid input value for enum transport_type")) {
+    return "Veuillez sélectionner un type de transport valide (Express, Normal, Bateau) ou laissez le champ vide.";
+  }
+  if (msg.includes("invalid input value for enum")) {
+    return "Valeur incorrecte sélectionnée. Veuillez vérifier vos choix.";
+  }
+  if (msg.includes("duplicate key value violates unique constraint")) {
+    return "Attention : Cet identifiant ou numéro existe déjà dans le système.";
+  }
+  if (msg.includes("Failed to fetch") || msg.includes("NetworkError")) {
+    return "Problème de connexion. Veuillez vérifier votre connexion internet.";
+  }
+  if (
+    msg.includes("JWT expired") ||
+    msg.includes("jwt expired") ||
+    msg.includes("Auth session missing")
+  ) {
+    return "Votre session a expiré. Veuillez recharger la page et vous reconnecter.";
+  }
+  if (
+    msg.includes("new row violates row-level security policy") ||
+    msg.includes("violates row-level security")
+  ) {
+    return "Accès refusé : Vous n'avez pas l'autorisation d'effectuer cette action.";
+  }
+  if (msg.includes("invalid input syntax for type uuid")) {
+    return "L'identifiant fourni n'est pas reconnu par le système.";
+  }
+  if (msg.includes("FRAUDE_BLOQUEE:")) {
+    return (
+      msg.split("FRAUDE_BLOQUEE:")[1]?.trim() ||
+      "Action bloquée par mesure de sécurité."
+    );
+  }
+
+  // Si l'erreur n'est pas dans le dictionnaire, on renvoie le texte d'origine
+  return msg;
 };

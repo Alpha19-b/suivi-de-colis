@@ -165,7 +165,8 @@ export const EditShipmentModal = ({ shipment, onClose, onSave, onUpdateInfo, wal
       phone: formData.phone,
       description: formData.description,
       weight_kg: calculatedWeight,
-      transport_type: isFinanceLocked ? shipment.transport_type : formData.transport_type,
+      // 🟢 CORRECTION ICI : Conversion du vide ("") en null
+      transport_type: isFinanceLocked ? shipment.transport_type : (formData.transport_type || null),
       estimated_delivery: formData.estimated_delivery || null,
       amount_due_gnf: calculatedAmount,
       payment_status: paymentStatus,
@@ -219,7 +220,8 @@ export const EditShipmentModal = ({ shipment, onClose, onSave, onUpdateInfo, wal
       phone: formData.phone,
       description: formData.description,
       weight_kg: calculatedWeight,
-      transport_type: isFinanceLocked ? shipment.transport_type : formData.transport_type,
+      // 🟢 CORRECTION ICI AUSSI : Conversion du vide ("") en null
+      transport_type: isFinanceLocked ? shipment.transport_type : (formData.transport_type || null),
       estimated_delivery: formData.estimated_delivery || null,
       amount_due_gnf: calculatedAmount,
       payment_status: paymentStatus,

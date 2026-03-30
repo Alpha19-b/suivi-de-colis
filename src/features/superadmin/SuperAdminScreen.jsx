@@ -126,13 +126,12 @@ export const SuperAdminScreen = ({ supabase, showAlert, setUserOrg, setView, fet
     }
   };
 
-  // 🟢 NOUVELLE LOGIQUE GOD MODE : ON INITIALISE LES CADEAUX À ZÉRO
   const handleOpenGodMode = (org) => {
     setGodModeOrg({
       ...org,
       subscription_end_date: org.subscription_end_date ? new Date(org.subscription_end_date).toISOString().split('T')[0] : '',
-      gift_emails: '', // Champ vide (distributeur)
-      gift_sms: ''     // Champ vide (distributeur)
+      gift_emails: '', 
+      gift_sms: ''     
     });
   };
 
@@ -140,14 +139,12 @@ export const SuperAdminScreen = ({ supabase, showAlert, setUserOrg, setView, fet
     e.preventDefault();
     setActionLoading(true);
     try {
-      // 1. Mise à jour exclusive de la date d'abonnement
       const { error: orgError } = await supabase.from('organizations').update({ 
         subscription_end_date: new Date(godModeOrg.subscription_end_date).toISOString()
       }).eq('id', godModeOrg.id);
       
       if (orgError) throw orgError;
 
-      // 2. AJOUT SILENCIEUX DES E-MAILS (Si un cadeau a été tapé)
       const giftEmails = Number(godModeOrg.gift_emails);
       if (giftEmails) {
         const { error: emailError } = await supabase.rpc('add_extra_email_quota', {
@@ -155,7 +152,6 @@ export const SuperAdminScreen = ({ supabase, showAlert, setUserOrg, setView, fet
           p_amount: giftEmails
         });
         
-        // Fallback ultra-sécurisé au cas où le RPC bloque sur le front-end
         if (emailError) {
           const currentOrg = orgs.find(o => o.id === godModeOrg.id);
           const newQuota = (currentOrg.extra_email_quota || 0) + giftEmails;
@@ -163,7 +159,6 @@ export const SuperAdminScreen = ({ supabase, showAlert, setUserOrg, setView, fet
         }
       }
 
-      // 3. AJOUT SILENCIEUX DES SMS (Si un cadeau a été tapé)
       const giftSms = Number(godModeOrg.gift_sms);
       if (giftSms) {
         const { error: smsError } = await supabase.rpc('add_tracking_credit', {
@@ -484,10 +479,14 @@ export const SuperAdminScreen = ({ supabase, showAlert, setUserOrg, setView, fet
                     
                     const currentPlan = plans.find(p => p.id === org.plan) || { monthly_email_quota: 0, monthly_sms_quota: 0 };
                     
-                    const totalEmailsAllowed = (currentPlan.monthly_email_quota || 0) + (org.extra_email_quota || 0);
+                    // 🟢 LA MAGIE DU SNAPSHOT EST ICI
+                    const baseEmailLimit = (org.base_email_limit !== undefined && org.base_email_limit !== null) ? org.base_email_limit : (currentPlan.monthly_email_quota || 0);
+                    const baseSmsLimit = (org.base_sms_limit !== undefined && org.base_sms_limit !== null) ? org.base_sms_limit : (currentPlan.monthly_sms_quota || 0);
+
+                    const totalEmailsAllowed = baseEmailLimit + (org.extra_email_quota || 0);
                     const emailsSent = org.emails_sent_this_month || 0;
                     
-                    const smsForfait = currentPlan.monthly_sms_quota || 0;
+                    const smsForfait = baseSmsLimit;
                     const smsPortefeuille = org.tracking_credits || 0; 
                     const totalSmsAllowed = smsForfait + smsPortefeuille;
                     const smsSent = org.sms_sent_this_month || 0;
