@@ -13,26 +13,26 @@ export const WelcomePasswordModal = ({ supabase, onComplete, showAlert, onCancel
     
     setLoading(true);
 
-    if (!supabase) {
+    try {
+      // On tente directement de mettre à jour le mot de passe
+      const { error } = await supabase.auth.updateUser({ password: password });
+      
+      if (error) {
+        throw error;
+      } else {
+        showAlert("✅ Mot de passe enregistré ! Bienvenue dans l'équipe.");
+        if (onComplete) onComplete();
+      }
+    } catch (error) {
+      console.error("Erreur update mot de passe :", error);
+      // Si l'erreur est liée à la session, on affiche un message plus clair
+      if (error.message.includes("session")) {
+         showAlert("❌ Erreur de session. Veuillez fermer cette fenêtre et cliquer à nouveau sur le lien dans votre email.");
+      } else {
+         showAlert("Erreur : " + extractErrorMessage(error));
+      }
+    } finally {
       setLoading(false);
-      return showAlert("⏳ Le système se connecte encore en arrière-plan. Veuillez patienter quelques secondes...");
-    }
-
-    const { data: { session } } = await supabase.auth.getSession();
-    
-    if (!session) {
-      setLoading(false);
-      return showAlert("⏳ Connexion en cours de validation. Veuillez patienter quelques secondes et cliquer à nouveau sur le bouton.");
-    }
-
-    const { error } = await supabase.auth.updateUser({ password: password });
-    
-    setLoading(false);
-    if (error) {
-      showAlert("Erreur : " + extractErrorMessage(error));
-    } else {
-      showAlert("✅ Mot de passe enregistré ! Bienvenue dans l'équipe.");
-      onComplete();
     }
   };
 
@@ -56,12 +56,17 @@ export const WelcomePasswordModal = ({ supabase, onComplete, showAlert, onCancel
             icon={Key} 
             required 
           />
+          
           <button 
             type="submit" 
             disabled={loading || !password} 
-            className="w-full bg-slate-900 text-white font-black py-4 rounded-xl hover:bg-slate-800 transition-all shadow-xl shadow-slate-900/20 active:scale-95 flex justify-center items-center gap-2"
+            className="w-full bg-slate-900 text-white font-black py-4 rounded-xl hover:bg-slate-800 disabled:bg-slate-400 disabled:shadow-none transition-all shadow-xl shadow-slate-900/20 active:scale-95 flex justify-center items-center gap-2"
           >
-            {loading ? <RefreshCw className="animate-spin" size={20} /> : "Sécuriser mon compte"}
+            {loading ? (
+              <><RefreshCw className="animate-spin" size={20} /> Sécurisation...</>
+            ) : (
+              "Sécuriser mon compte"
+            )}
           </button>
 
           <button 

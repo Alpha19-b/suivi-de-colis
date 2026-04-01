@@ -36,6 +36,9 @@ import { AdminScreen } from "./features/admin/AdminScreen";
 import { CargoWalletScreen } from "./features/billing/CargoWalletScreen";
 import { PublicDropScreen } from "./features/public/PublicDropScreen";
 
+// 🟢 IMPORT DU NOUVEAU COMPOSANT
+import AuthConfirm from "./features/auth/AuthConfirm";
+
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 const APP_URL = "https://guineatrack.com/";
@@ -44,16 +47,21 @@ const hasConfig = SUPABASE_URL && SUPABASE_ANON_KEY;
 let globalSupabaseClient = null;
 
 export default function App() {
-  // 🟢 AIGUILLAGE INTELLIGENT DU SOUS-DOMAINE
+  // 🟢 AIGUILLAGE INTELLIGENT
   const [view, setView] = useState(() => {
     if (typeof window !== 'undefined') {
+      const pathname = window.location.pathname;
+      // 🟢 Si le lien pointe vers /auth/confirm, on charge cette vue
+      if (pathname.startsWith('/auth/confirm')) {
+        return 'auth_confirm';
+      }
+
       const hostname = window.location.hostname;
-      // Si l'utilisateur tape pro.guineatrack.com ou app.guineatrack.com
       if (hostname.startsWith('pro.') || hostname.startsWith('app.')) {
-        return 'login'; // Afficher directement l'écran de connexion Staff
+        return 'login';
       }
     }
-    return 'home'; // Sinon, afficher l'écran d'accueil public
+    return 'home'; 
   });
   
   const [dropSlug, setDropSlug] = useState(""); 
@@ -86,8 +94,13 @@ export default function App() {
 
   useEffect(() => {
     const currentUrl = window.location.href;
-    const isInvite = currentUrl.includes('type=invite') || currentUrl.includes('recovery');
-    if (isInvite) setIsNewInvite(true);
+    const isConfirmPage = currentUrl.includes('/auth/confirm');
+    
+    // 🟢 Ne déclencher le modal que si on n'est PAS sur la page de confirmation (qui gère ça toute seule)
+    if (!isConfirmPage) {
+      const isInvite = currentUrl.includes('type=invite') || currentUrl.includes('recovery');
+      if (isInvite) setIsNewInvite(true);
+    }
   }, []);
 
   useEffect(() => {
@@ -156,7 +169,7 @@ export default function App() {
 
     const initializeAuth = async () => {
       const urlParams = new URLSearchParams(window.location.search);
-      if (urlParams.get('d')) return;
+      if (urlParams.get('d') || window.location.pathname.startsWith('/auth/confirm')) return;
       
       try {
         setLoading(true);
@@ -190,21 +203,23 @@ export default function App() {
     initializeAuth();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'PASSWORD_RECOVERY' || window.location.href.includes('type=invite') || window.location.hash.includes('type=invite') || window.location.hash.includes('recovery')) {
+      const isConfirmPage = window.location.pathname.startsWith('/auth/confirm');
+      
+      if (!isConfirmPage && (event === 'PASSWORD_RECOVERY' || window.location.href.includes('type=invite') || window.location.hash.includes('type=invite') || window.location.hash.includes('recovery'))) {
         setIsNewInvite(true);
       }
 
       const urlParams = new URLSearchParams(window.location.search);
       const isPublicDrop = urlParams.get('d');
 
-      if (event === 'SIGNED_IN' && !isPublicDrop) {
+      if (event === 'SIGNED_IN' && !isPublicDrop && !isConfirmPage) {
         initializeAuth();
       } else if (event === 'SIGNED_OUT') {
          setUserOrg(null);
          setCurrentUser(null);
          setCurrentUserRole(null);
          setAdminList([]);
-         if (!isPublicDrop) setView('home');
+         if (!isPublicDrop && !isConfirmPage) setView('home');
       }
     });
 
@@ -583,6 +598,8 @@ export default function App() {
           onComplete={() => {
               setIsNewInvite(false);
               window.history.replaceState(null, '', window.location.pathname);
+              // Optionnel: Recharger la page ou envoyer au login
+              setView('login');
           }} 
           onCancel={() => { 
               setIsNewInvite(false); 
@@ -592,8 +609,8 @@ export default function App() {
         />
       )}
 
-      {/* 🟢 LA NAVBAR EST CACHÉE SUR LA VUE PUBLIQUE DE DÉPÔT */}
-      {view !== "public_drop" && (
+      {/* 🟢 LA NAVBAR EST CACHÉE SUR LA VUE PUBLIQUE ET LA CONFIRMATION */}
+      {view !== "public_drop" && view !== "auth_confirm" && (
         <Navbar 
           view={view} 
           setView={setView} 
@@ -622,7 +639,15 @@ export default function App() {
         />
       )}
 
-      {/* 🟢 LA NOUVELLE VUE DU PORTAIL CLIENT */}
+      {/* 🟢 LA NOUVELLE VUE DE CONFIRMATION */}
+      {view === "auth_confirm" && (
+        <AuthConfirm 
+          supabase={supabase} 
+          setView={setView} 
+          setIsNewInvite={setIsNewInvite} 
+        />
+      )}
+
       {view === "public_drop" && (
         <PublicDropScreen 
           supabase={supabase} 
