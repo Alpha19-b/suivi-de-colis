@@ -3,7 +3,8 @@ import {
   Settings, Save, Building2, MessageSquare, 
   Palette, UploadCloud, Image, Key, Lock, 
   DollarSign, Plane, Anchor, Users, Crown, 
-  Mail, RefreshCw, Trash2, Sparkles, AlertTriangle
+  Mail, RefreshCw, Trash2, Sparkles, AlertTriangle,
+  MapPin, Ship, HelpCircle, X
 } from 'lucide-react';
 import { Input } from '../../components/ui/Input';
 import { ConfirmModal } from '../../components/ui/ConfirmModal';
@@ -24,6 +25,9 @@ export const SettingsScreen = ({ userOrg, setUserOrg, currentUser, supabase, set
   const [updatingRole, setUpdatingRole] = useState(null);
   const [staffToDelete, setStaffToDelete] = useState(null);
   const [showSubscription, setShowSubscription] = useState(false);
+  
+  // 🟢 État pour la modale d'aide Google Maps
+  const [showMapHelp, setShowMapHelp] = useState(false);
   
   const [planLimits, setPlanLimits] = useState({ max_users: 1 });
 
@@ -48,11 +52,16 @@ export const SettingsScreen = ({ userOrg, setUserOrg, currentUser, supabase, set
   const maxStaff = isExpired ? 1 : (planLimits.max_users ?? 1);
   const isStaffLimitReached = staffList.length >= maxStaff;
 
+  // 🟢 INTÉGRATION DES NOUVELLES ADRESSES ICI
   const [formData, setFormData] = useState({
       name: userOrg?.name || "",
       whatsapp_number: userOrg?.whatsapp_number || "",
       logo_url: userOrg?.logo_url || "",
       primary_color: userOrg?.primary_color || "#0f172a",
+      china_air_express: userOrg?.china_air_express || "",
+      china_air_normal: userOrg?.china_air_normal || "",
+      china_maritime: userOrg?.china_maritime || "",
+      conakry_address: userOrg?.conakry_address || "",
       rates: {
         aerien_express: userOrg?.public_rates?.aerien_express?.price || "",
         aerien_normal: userOrg?.public_rates?.aerien_normal?.price || "",
@@ -79,11 +88,16 @@ export const SettingsScreen = ({ userOrg, setUserOrg, currentUser, supabase, set
     if (!supabase || !userOrg) return;
     setLoading(true);
     try {
+      // 🟢 ENVOI DES NOUVELLES ADRESSES A SUPABASE
       const payload = {
         name: formData.name,
         whatsapp_number: formData.whatsapp_number,
         logo_url: formData.logo_url,
         primary_color: formData.primary_color,
+        china_air_express: formData.china_air_express,
+        china_air_normal: formData.china_air_normal,
+        china_maritime: formData.china_maritime,
+        conakry_address: formData.conakry_address,
         public_rates: {
           ...userOrg.public_rates,
           aerien_express: { label: "Aérien Express", price: Number(formData.rates.aerien_express) },
@@ -194,6 +208,34 @@ export const SettingsScreen = ({ userOrg, setUserOrg, currentUser, supabase, set
         <ConfirmModal title="Révoquer l'accès ?" message="Le compte de cet utilisateur sera définitivement supprimé." onConfirm={executeDeleteStaff} onCancel={() => setStaffToDelete(null)} loading={loading} />
       )}
       
+      {/* 🟢 MODALE D'AIDE GOOGLE MAPS */}
+      {showMapHelp && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-white rounded-[2rem] p-8 w-full max-w-md shadow-2xl relative animate-in zoom-in-95">
+            <button onClick={() => setShowMapHelp(false)} className="absolute top-6 right-6 p-2 text-slate-400 hover:text-slate-900 hover:bg-slate-100 rounded-full transition-colors">
+              <X size={24} />
+            </button>
+            <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center mb-6">
+              <MapPin size={32} />
+            </div>
+            <h3 className="text-2xl font-black text-slate-900 mb-2">Lien Google Maps</h3>
+            <p className="text-slate-500 font-medium mb-6">Comment obtenir le lien exact de votre point de retrait pour vos clients :</p>
+            
+            <ol className="space-y-4 text-sm font-bold text-slate-700">
+              <li className="flex gap-3 items-start"><span className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center shrink-0">1</span>Ouvrez l'application Google Maps sur votre téléphone.</li>
+              <li className="flex gap-3 items-start"><span className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center shrink-0">2</span>Cherchez votre point de retrait ou maintenez votre doigt sur la carte pour placer un repère.</li>
+              <li className="flex gap-3 items-start"><span className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center shrink-0">3</span>Appuyez sur le bouton <strong>Partager</strong> en bas de l'écran.</li>
+              <li className="flex gap-3 items-start"><span className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center shrink-0">4</span>Appuyez sur <strong>Copier le lien</strong>.</li>
+              <li className="flex gap-3 items-start"><span className="w-6 h-6 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center shrink-0">5</span>Revenez ici et collez le lien dans le champ.</li>
+            </ol>
+
+            <button onClick={() => setShowMapHelp(false)} className="w-full mt-8 bg-slate-900 text-white font-black py-4 rounded-xl shadow-xl active:scale-95 transition-all">
+              J'ai compris
+            </button>
+          </div>
+        </div>
+      )}
+      
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-6">
         <div>
           <h2 className="text-4xl font-black text-slate-900 tracking-tight flex items-center gap-4">
@@ -286,6 +328,77 @@ export const SettingsScreen = ({ userOrg, setUserOrg, currentUser, supabase, set
               <Input label="Aérien Express (Prix / Kg)" type="number" value={formData.rates.aerien_express} onChange={(e) => setFormData({...formData, rates: {...formData.rates, aerien_express: e.target.value}})} icon={Plane} />
               <Input label="Aérien Normal (Prix / Kg)" type="number" value={formData.rates.aerien_normal} onChange={(e) => setFormData({...formData, rates: {...formData.rates, aerien_normal: e.target.value}})} icon={Plane} />
               <Input label="Maritime (Prix / CBM)" type="number" value={formData.rates.maritime} onChange={(e) => setFormData({...formData, rates: {...formData.rates, maritime: e.target.value}})} icon={Anchor} />
+            </div>
+          </div>
+
+          {/* 🟢 NOUVELLE SECTION ADRESSES ENTREPÔTS */}
+          <div className="bg-white p-6 sm:p-10 rounded-[2rem] shadow-xl border border-slate-200">
+            <div className="mb-8">
+              <h3 className="text-2xl font-black text-slate-900 mb-2 flex items-center gap-3">
+                <div className="p-2.5 bg-indigo-50 text-indigo-600 rounded-xl">
+                  <MapPin size={24} />
+                </div>
+                Adresses des Entrepôts
+              </h3>
+              <p className="text-slate-500 font-medium">
+                Renseignez vos adresses de réception en Chine et de retrait à Conakry pour guider vos clients.
+              </p>
+            </div>
+
+            <div className="space-y-8">
+              {/* 🇨🇳 ENTREPÔTS CHINE */}
+              <div className="p-6 sm:p-8 bg-slate-50 border border-slate-200 rounded-3xl space-y-6">
+                <h4 className="font-black text-slate-800 text-lg flex items-center gap-2 mb-2">
+                  🇨🇳 Adresses de réception (Chine)
+                </h4>
+                
+                <div className="space-y-5">
+                  <Input 
+                    label="Adresse Aérien Express" 
+                    placeholder="Ex: Guangzhou, Baiyun District..." 
+                    value={formData.china_air_express} 
+                    onChange={(e) => setFormData({...formData, china_air_express: e.target.value})} 
+                    icon={Plane} 
+                  />
+                  <Input 
+                    label="Adresse Aérien Normal" 
+                    placeholder="Ex: Guangzhou..." 
+                    value={formData.china_air_normal} 
+                    onChange={(e) => setFormData({...formData, china_air_normal: e.target.value})} 
+                    icon={Plane} 
+                  />
+                  <Input 
+                    label="Adresse Maritime" 
+                    placeholder="Ex: Shenzhen Port..." 
+                    value={formData.china_maritime} 
+                    onChange={(e) => setFormData({...formData, china_maritime: e.target.value})} 
+                    icon={Ship} 
+                  />
+                </div>
+              </div>
+
+              {/* 🇬🇳 ENTREPÔT CONAKRY */}
+              <div className="p-6 sm:p-8 bg-slate-50 border border-slate-200 rounded-3xl space-y-4">
+                <div className="flex justify-between items-center mb-2">
+                  <h4 className="font-black text-slate-800 text-lg flex items-center gap-2">
+                    🇬🇳 Point de retrait (Conakry)
+                  </h4>
+                  <button 
+                    onClick={() => setShowMapHelp(true)}
+                    className="text-[10px] sm:text-xs font-black uppercase tracking-widest bg-blue-100 text-blue-600 hover:bg-blue-200 px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-colors"
+                  >
+                    <HelpCircle size={14} /> Comment faire ?
+                  </button>
+                </div>
+                
+                <Input 
+                  label="Adresse ou Lien Google Maps" 
+                  placeholder="Collez le lien Maps ici..." 
+                  value={formData.conakry_address} 
+                  onChange={(e) => setFormData({...formData, conakry_address: e.target.value})} 
+                  icon={MapPin} 
+                />
+              </div>
             </div>
           </div>
 
