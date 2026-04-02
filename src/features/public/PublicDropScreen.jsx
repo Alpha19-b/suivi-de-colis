@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { 
   User, Phone, Mail, Package, Plane, Ship, Camera, 
-  ArrowRight, ArrowLeft, CheckCircle2, Loader2, Image as ImageIcon, X, Zap, Calculator
+  ArrowRight, ArrowLeft, CheckCircle2, Loader2, Image as ImageIcon, X, Zap, Calculator,
+  MapPin, Copy, Building2
 } from 'lucide-react';
 import { extractErrorMessage } from '../../utils/helpers'; 
 import { PriceCalculatorModal } from '../tracking/PriceCalculatorModal';
@@ -12,10 +13,11 @@ export const PublicDropScreen = ({ supabase, cargoSlug }) => {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   
-  // 🟢 État pour ouvrir l'estimateur de prix
   const [showCalculator, setShowCalculator] = useState(false);
+  // 🟢 Nouvel état pour la modale des adresses
+  const [showAddressModal, setShowAddressModal] = useState(false);
+  const [copiedField, setCopiedField] = useState(null);
   
-  // Séparation des erreurs
   const [loadError, setLoadError] = useState('');
   const [submitError, setSubmitError] = useState('');
   
@@ -31,98 +33,66 @@ export const PublicDropScreen = ({ supabase, cargoSlug }) => {
   const [photoPreview, setPhotoPreview] = useState(null);
   const [generatedCode, setGeneratedCode] = useState('');
 
-  // 1. Récupération des infos du Cargo
   useEffect(() => {
     let isMounted = true;
-
     if (!supabase || !cargoSlug) return;
 
     const fetchOrgDetails = async () => {
       try {
-        if (isMounted) {
-          setLoading(true);
-          setLoadError('');
-        }
-
+        if (isMounted) { setLoading(true); setLoadError(''); }
         const { data, error } = await supabase.rpc('get_public_org', { p_slug: cargoSlug });
-          
         if (error) throw error;
         if (!data) throw new Error("Cargo introuvable.");
-        
-        if (isMounted) {
-          setOrg(data);
-          setLoadError('');
-        }
+        if (isMounted) { setOrg(data); setLoadError(''); }
       } catch (err) {
-        if (isMounted) {
-          setLoadError("Ce lien de dépôt n'est pas valide ou le cargo n'existe plus.");
-        }
+        if (isMounted) setLoadError("Ce lien de dépôt n'est pas valide ou le cargo n'existe plus.");
       } finally {
         if (isMounted) setLoading(false);
       }
     };
-
     fetchOrgDetails();
-
     return () => { isMounted = false; };
   }, [cargoSlug, supabase]);
 
-  // 2. Gestion de l'upload de photo en local
   const handlePhotoChange = (e) => {
     const file = e.target.files[0];
     if (!file) return;
-
     if (file.size > 5 * 1024 * 1024) {
       alert("La photo est trop lourde (Max 5 Mo). Veuillez en choisir une autre.");
       return;
     }
-
     setPhotoFile(file);
     setPhotoPreview(URL.createObjectURL(file));
   };
 
-  // 3. Fonction de validation stricte de l'Étape 1
   const handleNextStep = () => {
     setSubmitError(''); 
-
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(formData.client_email)) {
       setSubmitError("Veuillez entrer une adresse e-mail valide (ex: nom@email.com).");
       return;
     }
-
     const phoneRegex = /^\+?[\d\s\-]{8,}$/;
     if (!phoneRegex.test(formData.client_phone)) {
       setSubmitError("Le numéro de téléphone est invalide. Il ne doit contenir que des chiffres (minimum 8).");
       return;
     }
-
     setStep(2);
   };
 
-  // 4. Soumission finale vers Supabase
   const handleSubmit = async () => {
     setSubmitting(true);
     setSubmitError('');
 
     try {
       let photo_url = null;
-
       if (photoFile) {
         const fileExt = photoFile.name.split('.').pop();
         const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
         const filePath = `uploads_clients/${fileName}`;
-
-        const { error: uploadError } = await supabase.storage
-          .from('package_photos')
-          .upload(filePath, photoFile);
-
+        const { error: uploadError } = await supabase.storage.from('package_photos').upload(filePath, photoFile);
         if (uploadError) throw uploadError;
-
-        const { data: publicUrlData } = supabase.storage
-          .from('package_photos')
-          .getPublicUrl(filePath);
-          
+        const { data: publicUrlData } = supabase.storage.from('package_photos').getPublicUrl(filePath);
         photo_url = publicUrlData.publicUrl;
       }
 
@@ -137,7 +107,6 @@ export const PublicDropScreen = ({ supabase, cargoSlug }) => {
       });
 
       if (dbError) throw dbError;
-
       setGeneratedCode(trackingCode);
       setStep(3);
 
@@ -145,6 +114,14 @@ export const PublicDropScreen = ({ supabase, cargoSlug }) => {
       setSubmitError(extractErrorMessage(err) || "Une erreur est survenue lors de l'envoi.");
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleCopyAddress = (text, fieldName) => {
+    if (text) {
+      navigator.clipboard.writeText(text);
+      setCopiedField(fieldName);
+      setTimeout(() => setCopiedField(null), 2000);
     }
   };
 
@@ -156,17 +133,63 @@ export const PublicDropScreen = ({ supabase, cargoSlug }) => {
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col font-sans selection:bg-indigo-100 pb-10">
       
-      {/* 🟢 MODALE ESTIMATEUR DE PRIX */}
-      {showCalculator && (
-        <PriceCalculatorModal 
-          onClose={() => setShowCalculator(false)} 
-          rates={org.public_rates || {}} 
-        />
+      {showCalculator && <PriceCalculatorModal onClose={() => setShowCalculator(false)} rates={org.public_rates || {}} />}
+
+      {/* 🟢 MODALE DES ADRESSES DE LIVRAISON */}
+      {showAddressModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in">
+          <div className="bg-white rounded-[2rem] w-full max-w-xl shadow-2xl relative overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="p-6 sm:p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50 sticky top-0 z-10">
+              <div className="flex items-center gap-3">
+                <div className="p-3 bg-blue-100 text-blue-600 rounded-xl"><Building2 size={24} /></div>
+                <h2 className="text-2xl font-black text-slate-900">Nos Entrepôts (Chine)</h2>
+              </div>
+              <button onClick={() => setShowAddressModal(false)} className="p-2 text-slate-400 hover:bg-slate-200 hover:text-slate-800 rounded-full transition-colors"><X size={24} /></button>
+            </div>
+            
+            <div className="p-6 sm:p-8 overflow-y-auto space-y-6">
+              <p className="text-slate-600 font-medium mb-2">Copiez l'adresse correspondante au transport choisi et transmettez-la à votre fournisseur.</p>
+              
+              {[
+                { id: 'air_express', title: 'Aérien Express', icon: Zap, color: 'text-amber-500', bg: 'bg-amber-50', border: 'border-amber-100', address: org.china_air_express },
+                { id: 'air_normal', title: 'Aérien Normal', icon: Plane, color: 'text-blue-500', bg: 'bg-blue-50', border: 'border-blue-100', address: org.china_air_normal },
+                { id: 'maritime', title: 'Maritime', icon: Ship, color: 'text-cyan-500', bg: 'bg-cyan-50', border: 'border-cyan-100', address: org.china_maritime }
+              ].map((item) => (
+                <div key={item.id} className="border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+                  <div className={`px-4 py-3 flex items-center gap-2 border-b border-slate-200 ${item.bg}`}>
+                    <item.icon size={18} className={item.color} />
+                    <h3 className="font-black text-slate-800">{item.title}</h3>
+                  </div>
+                  <div className="p-4 bg-white">
+                    {item.address ? (
+                      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                        <p className="text-sm font-bold text-slate-600 whitespace-pre-wrap break-words flex-1">{item.address}</p>
+                        <button 
+                          onClick={() => handleCopyAddress(item.address, item.id)}
+                          className={`w-full sm:w-auto shrink-0 px-4 py-2 flex items-center justify-center gap-2 rounded-xl font-bold text-sm transition-all ${copiedField === item.id ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}
+                        >
+                          {copiedField === item.id ? <CheckCircle2 size={16} /> : <Copy size={16} />}
+                          {copiedField === item.id ? "Copiée !" : "Copier"}
+                        </button>
+                      </div>
+                    ) : (
+                      <p className="text-sm italic text-slate-400">Aucune adresse renseignée pour ce type de transport.</p>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+            
+            <div className="p-6 border-t border-slate-100 bg-slate-50 sticky bottom-0">
+              <button onClick={() => setShowAddressModal(false)} className="w-full py-4 bg-slate-900 text-white font-black rounded-xl active:scale-95 transition-transform">Fermer</button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* HEADER DYNAMIQUE DU CARGO */}
-      <div className="bg-white shadow-sm py-4 px-6 flex items-center justify-between relative z-10">
-        <div className="flex items-center gap-3">
+      <div className="bg-white shadow-sm py-4 px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-4 relative z-10">
+        <div className="flex items-center gap-3 w-full sm:w-auto justify-center sm:justify-start">
           {org.logo_url ? (
             <img src={org.logo_url} alt="Logo" className="h-10 object-contain" />
           ) : (
@@ -174,24 +197,32 @@ export const PublicDropScreen = ({ supabase, cargoSlug }) => {
               {org.name.charAt(0)}
             </div>
           )}
-          <h1 className="font-black text-xl text-slate-900 hidden sm:block">{org.name}</h1>
+          <h1 className="font-black text-xl text-slate-900">{org.name}</h1>
         </div>
         
-        {/* 🟢 BOUTON ESTIMATEUR DANS LE HEADER */}
-        <button 
-          onClick={() => setShowCalculator(true)}
-          className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded-xl font-bold text-sm transition-all active:scale-95"
-        >
-          <Calculator size={16} className="text-blue-500" /> 
-          <span className="hidden sm:inline">Estimer un envoi</span>
-          <span className="sm:hidden">Estimer</span>
-        </button>
+        {/* 🟢 DEUX BOUTONS DANS LE HEADER */}
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          <button 
+            onClick={() => setShowAddressModal(true)}
+            className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-blue-50 border border-blue-100 hover:bg-blue-100 text-blue-700 px-3 py-2.5 rounded-xl font-bold text-sm transition-all active:scale-95"
+          >
+            <MapPin size={16} /> 
+            <span className="whitespace-nowrap">Nos Adresses</span>
+          </button>
+          
+          <button 
+            onClick={() => setShowCalculator(true)}
+            className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-2.5 rounded-xl font-bold text-sm transition-all active:scale-95"
+          >
+            <Calculator size={16} /> 
+            <span className="whitespace-nowrap">Estimer Prix</span>
+          </button>
+        </div>
       </div>
 
       {/* CONTENU DU FORMULAIRE */}
       <div className="flex-1 flex flex-col items-center p-4 sm:p-8 w-full max-w-lg mx-auto">
         
-        {/* BARRE DE PROGRESSION */}
         {step < 3 && (
           <div className="w-full flex items-center gap-2 mb-8 mt-4">
             <div className={`h-2 flex-1 rounded-full ${step >= 1 ? 'bg-slate-800' : 'bg-slate-200'} transition-colors`} style={{ backgroundColor: step >= 1 ? brandColor : '' }}></div>
@@ -201,7 +232,6 @@ export const PublicDropScreen = ({ supabase, cargoSlug }) => {
 
         <div className="bg-white w-full p-6 sm:p-8 rounded-[2rem] shadow-xl border border-slate-100 relative overflow-hidden">
           
-          {/* AFFICHAGE DE L'ERREUR DE VALIDATION */}
           {submitError && <div className="mb-6 p-4 bg-rose-50 text-rose-600 rounded-xl text-sm font-bold border border-rose-100">{submitError}</div>}
 
           {/* ÉTAPE 1 : IDENTITÉ */}
@@ -255,8 +285,6 @@ export const PublicDropScreen = ({ supabase, cargoSlug }) => {
               <p className="text-slate-500 text-sm font-medium mb-6">Informations de transport et preuve photographique (recommandé).</p>
 
               <div className="space-y-6">
-                
-                {/* Choix du Transport */}
                 <div>
                    <label className="text-xs font-black uppercase text-slate-500 ml-1 mb-2 block">Moyen de transport souhaité</label>
                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -286,7 +314,6 @@ export const PublicDropScreen = ({ supabase, cargoSlug }) => {
                    </div>
                 </div>
 
-                {/* Description */}
                 <div>
                   <label className="text-xs font-black uppercase text-slate-500 ml-1 mb-1 block">Contenu du colis</label>
                   <div className="relative">
@@ -295,7 +322,6 @@ export const PublicDropScreen = ({ supabase, cargoSlug }) => {
                   </div>
                 </div>
 
-                {/* Upload Photo */}
                 <div>
                   <label className="text-xs font-black uppercase text-slate-500 ml-1 mb-1 block">Photo du colis (Une seule)</label>
                   {!photoPreview ? (
@@ -304,7 +330,6 @@ export const PublicDropScreen = ({ supabase, cargoSlug }) => {
                         <Camera className="mb-2" size={24} />
                         <p className="text-sm font-bold">Appuyez pour prendre une photo</p>
                       </div>
-                      {/* 🟢 CORRECTION : J'ai enlevé 'capture="environment"' pour permettre le choix (Galerie ou Appareil photo) */}
                       <input type="file" className="hidden" accept="image/jpeg, image/png, image/webp" onChange={handlePhotoChange} />
                     </label>
                   ) : (
@@ -349,10 +374,10 @@ export const PublicDropScreen = ({ supabase, cargoSlug }) => {
 
               <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5 text-left mb-6">
                  <h4 className="font-black text-amber-800 flex items-center gap-2 mb-1"><ImageIcon size={16}/> Instruction importante</h4>
-                 <p className="text-sm text-amber-700 font-medium">Veuillez communiquer ce code <strong>{generatedCode}</strong> à votre vendeur pour qu'il l'écrive au marqueur sur votre carton avant l'expédition.</p>
+                 <p className="text-sm text-amber-700 font-medium">N'oubliez pas de communiquer ce code <strong>{generatedCode}</strong> à votre vendeur si ce n'est pas déjà fait.</p>
               </div>
 
-              <button onClick={() => window.location.reload()} className="text-slate-400 hover:text-slate-800 font-bold transition-colors">Déclarer un autre colis</button>
+              <button onClick={() => window.location.reload()} className="mt-4 text-slate-400 hover:text-slate-800 font-bold transition-colors">Déclarer un autre colis</button>
             </div>
           )}
 

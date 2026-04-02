@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Settings, Save, Building2, MessageSquare, 
-  Palette, UploadCloud, Image, Key, Lock, 
+  Palette, UploadCloud, Image, 
   DollarSign, Plane, Anchor, Users, Crown, 
   Mail, RefreshCw, Trash2, Sparkles, AlertTriangle,
   MapPin, Ship, HelpCircle, X
@@ -13,9 +13,6 @@ import { SubscriptionModal } from '../billing/SubscriptionModal';
 
 export const SettingsScreen = ({ userOrg, setUserOrg, currentUser, supabase, setView, showAlert }) => {
   const [loading, setLoading] = useState(false);
-  const [isChangingPwd, setIsChangingPwd] = useState(false);
-  const [oldPassword, setOldPassword] = useState("");
-  const [newPassword, setNewPassword] = useState("");
   const [isUploadingLogo, setIsUploadingLogo] = useState(false);
   
   const [staffList, setStaffList] = useState([]);
@@ -26,7 +23,6 @@ export const SettingsScreen = ({ userOrg, setUserOrg, currentUser, supabase, set
   const [staffToDelete, setStaffToDelete] = useState(null);
   const [showSubscription, setShowSubscription] = useState(false);
   
-  // 🟢 État pour la modale d'aide Google Maps
   const [showMapHelp, setShowMapHelp] = useState(false);
   
   const [planLimits, setPlanLimits] = useState({ max_users: 1 });
@@ -42,17 +38,12 @@ export const SettingsScreen = ({ userOrg, setUserOrg, currentUser, supabase, set
     fetchLimits();
   }, [supabase, userOrg]);
 
-  // ==========================================
-  // 🧠 GESTION DE L'EXPIRATION
-  // ==========================================
   const daysRemaining = Math.ceil((new Date(userOrg?.subscription_end_date || 0).getTime() - new Date().getTime()) / (1000 * 3600 * 24));
   const isExpired = userOrg?.plan !== 'free' && daysRemaining <= 0;
 
-  // Variables Équipe
   const maxStaff = isExpired ? 1 : (planLimits.max_users ?? 1);
   const isStaffLimitReached = staffList.length >= maxStaff;
 
-  // 🟢 INTÉGRATION DES NOUVELLES ADRESSES ICI
   const [formData, setFormData] = useState({
       name: userOrg?.name || "",
       whatsapp_number: userOrg?.whatsapp_number || "",
@@ -88,7 +79,6 @@ export const SettingsScreen = ({ userOrg, setUserOrg, currentUser, supabase, set
     if (!supabase || !userOrg) return;
     setLoading(true);
     try {
-      // 🟢 ENVOI DES NOUVELLES ADRESSES A SUPABASE
       const payload = {
         name: formData.name,
         whatsapp_number: formData.whatsapp_number,
@@ -115,24 +105,6 @@ export const SettingsScreen = ({ userOrg, setUserOrg, currentUser, supabase, set
       showAlert("Erreur lors de la sauvegarde : " + extractErrorMessage(err));
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleUpdatePassword = async () => {
-    if (!oldPassword) return showAlert("Veuillez saisir votre ancien mot de passe.");
-    if (!newPassword || newPassword.length < 6) return showAlert("Le nouveau mot de passe doit contenir au moins 6 caractères.");
-    setIsChangingPwd(true);
-    try {
-      const { error: signInError } = await supabase.auth.signInWithPassword({ email: currentUser.email, password: oldPassword });
-      if (signInError) throw new Error("Ancien mot de passe incorrect.");
-      const { error } = await supabase.auth.updateUser({ password: newPassword });
-      if (error) throw error;
-      showAlert("✅ Votre mot de passe a été mis à jour !");
-      setOldPassword(""); setNewPassword("");
-    } catch (err) {
-      showAlert("Erreur : " + extractErrorMessage(err));
-    } finally {
-      setIsChangingPwd(false);
     }
   };
 
@@ -208,7 +180,6 @@ export const SettingsScreen = ({ userOrg, setUserOrg, currentUser, supabase, set
         <ConfirmModal title="Révoquer l'accès ?" message="Le compte de cet utilisateur sera définitivement supprimé." onConfirm={executeDeleteStaff} onCancel={() => setStaffToDelete(null)} loading={loading} />
       )}
       
-      {/* 🟢 MODALE D'AIDE GOOGLE MAPS */}
       {showMapHelp && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in">
           <div className="bg-white rounded-[2rem] p-8 w-full max-w-md shadow-2xl relative animate-in zoom-in-95">
@@ -253,7 +224,6 @@ export const SettingsScreen = ({ userOrg, setUserOrg, currentUser, supabase, set
         <SubscriptionModal onClose={() => setShowSubscription(false)} currentPlan={userOrg?.plan || 'free'} supabase={supabase} userOrg={userOrg} showAlert={showAlert} />
       )}
 
-      {/* --- SECTION ABONNEMENT EN BANNIÈRE --- */}
       <div className="mb-8">
         <div className={`w-full rounded-[2.5rem] p-8 sm:p-10 text-white shadow-xl relative overflow-hidden group flex flex-col md:flex-row items-start md:items-center justify-between gap-6 transition-all ${isExpired ? 'bg-rose-600' : 'bg-gradient-to-r from-indigo-600 via-blue-600 to-blue-700'}`}>
            <div className="absolute top-0 right-0 opacity-10 group-hover:scale-110 transition-transform duration-700 pointer-events-none">
@@ -308,17 +278,6 @@ export const SettingsScreen = ({ userOrg, setUserOrg, currentUser, supabase, set
               <Input label="Couleur principale (Thème)" type="color" value={formData.primary_color} onChange={(e) => setFormData({...formData, primary_color: e.target.value})} />
             </div>
           </div>
-
-          <div className="bg-white p-6 sm:p-10 rounded-[2rem] shadow-sm border border-slate-100 border-l-4 border-l-orange-500">
-            <h3 className="text-2xl font-black text-slate-900 mb-8 flex items-center gap-3"><Key className="text-orange-500" /> Sécurité</h3>
-            <div className="space-y-5">
-              <Input type="password" label="Ancien mot de passe" value={oldPassword} onChange={(e) => setOldPassword(e.target.value)} icon={Key} />
-              <Input type="password" label="Nouveau mot de passe" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} icon={Lock} />
-              <button onClick={handleUpdatePassword} disabled={isChangingPwd || !newPassword || !oldPassword} className="w-full bg-white border-2 border-slate-200 text-slate-700 hover:border-slate-800 font-black py-4 rounded-xl transition-all shadow-sm active:scale-95 disabled:opacity-50 mt-2">
-                {isChangingPwd ? "Mise à jour..." : "Modifier le mot de passe"}
-              </button>
-            </div>
-          </div>
         </div>
 
         <div className="space-y-8">
@@ -331,7 +290,6 @@ export const SettingsScreen = ({ userOrg, setUserOrg, currentUser, supabase, set
             </div>
           </div>
 
-          {/* 🟢 NOUVELLE SECTION ADRESSES ENTREPÔTS */}
           <div className="bg-white p-6 sm:p-10 rounded-[2rem] shadow-xl border border-slate-200">
             <div className="mb-8">
               <h3 className="text-2xl font-black text-slate-900 mb-2 flex items-center gap-3">
@@ -346,7 +304,6 @@ export const SettingsScreen = ({ userOrg, setUserOrg, currentUser, supabase, set
             </div>
 
             <div className="space-y-8">
-              {/* 🇨🇳 ENTREPÔTS CHINE */}
               <div className="p-6 sm:p-8 bg-slate-50 border border-slate-200 rounded-3xl space-y-6">
                 <h4 className="font-black text-slate-800 text-lg flex items-center gap-2 mb-2">
                   🇨🇳 Adresses de réception (Chine)
@@ -377,7 +334,6 @@ export const SettingsScreen = ({ userOrg, setUserOrg, currentUser, supabase, set
                 </div>
               </div>
 
-              {/* 🇬🇳 ENTREPÔT CONAKRY */}
               <div className="p-6 sm:p-8 bg-slate-50 border border-slate-200 rounded-3xl space-y-4">
                 <div className="flex justify-between items-center mb-2">
                   <h4 className="font-black text-slate-800 text-lg flex items-center gap-2">
