@@ -221,7 +221,14 @@ export const SettingsScreen = ({ userOrg, setUserOrg, currentUser, supabase, set
       </div>
 
       {showSubscription && (
-        <SubscriptionModal onClose={() => setShowSubscription(false)} currentPlan={userOrg?.plan || 'free'} supabase={supabase} userOrg={userOrg} showAlert={showAlert} />
+        <SubscriptionModal 
+          onClose={() => setShowSubscription(false)} 
+          currentPlan={userOrg?.plan || 'free'} 
+          isExpired={isExpired} /* 🟢 LA CORRECTION EST ICI */
+          supabase={supabase} 
+          userOrg={userOrg} 
+          showAlert={showAlert} 
+        />
       )}
 
       <div className="mb-8">

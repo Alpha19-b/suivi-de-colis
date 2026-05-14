@@ -92,6 +92,10 @@ export default function App() {
   const [paymentContext, setPaymentContext] = useState({});
   const [shipmentToDelete, setShipmentToDelete] = useState(null);
 
+  // 🟢 NOUVEAU : Calcul dynamique de l'expiration du plan
+  // Ajuste "days_left" selon le vrai nom de ta colonne en base de données si besoin
+  const isExpired = userOrg?.days_left !== undefined ? userOrg.days_left <= 0 : false;
+
   useEffect(() => {
     const currentUrl = window.location.href;
     const isConfirmPage = currentUrl.includes('/auth/confirm');
@@ -669,6 +673,7 @@ export default function App() {
           showAlert={setAlertMessage} 
           wallet={wallet}
           manualRefreshWallet={manualRefreshWallet}
+          isExpired={isExpired} // 🟢 NOUVEAU
         />
       )}
 
@@ -689,6 +694,7 @@ export default function App() {
           supabase={supabase}
           fetchAdminData={fetchAdminData}
           setAlertMessage={setAlertMessage}
+          isExpired={isExpired} // 🟢 NOUVEAU
         />
       )}
 
@@ -697,6 +703,7 @@ export default function App() {
           supabase={supabase} 
           userOrg={userOrg} 
           showAlert={setAlertMessage} 
+          isExpired={isExpired} // 🟢 NOUVEAU
         />
       )}
 

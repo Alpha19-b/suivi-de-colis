@@ -652,7 +652,17 @@ export const AdminScreen = ({
         </div>
       )}
 
-      {showSubscription && ( <SubscriptionModal onClose={() => setShowSubscription(false)} currentPlan={userOrg?.plan || 'free'} supabase={supabase} userOrg={userOrg} showAlert={setAlertMessage}/> )}
+      {/* 🟢 L'AJOUT DE "isExpired={isExpired}" EST ICI */}
+      {showSubscription && ( 
+        <SubscriptionModal 
+          onClose={() => setShowSubscription(false)} 
+          currentPlan={userOrg?.plan || 'free'} 
+          isExpired={isExpired}
+          supabase={supabase} 
+          userOrg={userOrg} 
+          showAlert={setAlertMessage}
+        /> 
+      )}
 
       {upgradePrompt.show && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-in fade-in duration-200">

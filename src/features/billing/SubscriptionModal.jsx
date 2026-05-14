@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { X, CheckCircle2, Zap, RefreshCw, AlertTriangle } from 'lucide-react';
 import { extractErrorMessage, getReturnUrl } from '../../utils/helpers';
 
-export const SubscriptionModal = ({ onClose, currentPlan = 'free', supabase, userOrg, showAlert }) => {
+// 🟢 MODIFICATION 1 : Ajout de la prop "isExpired = false"
+export const SubscriptionModal = ({ onClose, currentPlan = 'free', isExpired = false, supabase, userOrg, showAlert }) => {
   const [loadingPlan, setLoadingPlan] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [plans, setPlans] = useState([]);
@@ -176,7 +177,15 @@ export const SubscriptionModal = ({ onClose, currentPlan = 'free', supabase, use
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8 items-stretch">
                 {plans.map((plan) => {
                   const isCurrentPlan = currentPlan === plan.id;
-                  const isDisabled = isCurrentPlan || loadingPlan === plan.id || (plan.id === 'free' && currentPlan !== 'free');
+                  
+                  // 🟢 MODIFICATION 2 : Logique pour gérer l'expiration
+                  const isRenewable = isCurrentPlan && isExpired;
+                  const isDisabled = (!isRenewable && isCurrentPlan) || loadingPlan === plan.id || (plan.id === 'free' && currentPlan !== 'free');
+                  
+                  let buttonDisplay = plan.buttonText;
+                  if (isCurrentPlan) {
+                    buttonDisplay = isExpired ? 'Renouveler mon plan' : 'Plan Actuel';
+                  }
 
                   return (
                     <div key={plan.id} className={`h-full rounded-[2rem] p-6 sm:p-8 flex flex-col relative transition-all duration-300 hover:-translate-y-1 ${plan.highlight ? 'bg-white border-2 border-blue-500 shadow-xl shadow-blue-500/10 z-10 scale-100 lg:scale-105' : 'bg-slate-50 border border-slate-200 hover:shadow-md hover:bg-white'}`}>
@@ -206,13 +215,14 @@ export const SubscriptionModal = ({ onClose, currentPlan = 'free', supabase, use
                         ))}
                       </div>
 
+                      {/* 🟢 MODIFICATION 3 : Classes dynamiques du bouton */}
                       <button 
                         disabled={isDisabled}
-                        className={`w-full py-4 rounded-xl transition-all mt-auto flex items-center justify-center gap-2 ${isCurrentPlan || (plan.id === 'free' && currentPlan !== 'free') ? 'bg-slate-100 text-slate-400 font-bold cursor-not-allowed border border-slate-200' : plan.buttonStyle} ${loadingPlan === plan.id ? 'opacity-70 cursor-wait' : 'active:scale-95'}`}
+                        className={`w-full py-4 rounded-xl transition-all mt-auto flex items-center justify-center gap-2 ${(!isRenewable && isCurrentPlan) || (plan.id === 'free' && currentPlan !== 'free') ? 'bg-slate-100 text-slate-400 font-bold cursor-not-allowed border border-slate-200' : plan.buttonStyle} ${loadingPlan === plan.id ? 'opacity-70 cursor-wait' : 'active:scale-95'}`}
                         onClick={() => handleSubscribeClick(plan)}
                       >
                         {loadingPlan === plan.id ? <RefreshCw className="animate-spin" size={20} /> : null}
-                        {isCurrentPlan ? 'Plan Actuel' : plan.buttonText}
+                        {buttonDisplay}
                       </button>
                     </div>
                   );
